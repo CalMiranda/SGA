@@ -1,0 +1,62 @@
+//ASISTENCIA TEMPORAL 
+from datetime import datetime
+
+# Lista de estudiantes
+estudiantes = [
+    "Juan Pérez",
+    "María López",
+    "Carlos García",
+    "Ana Martínez",
+    "Pedro Rodríguez"
+]
+
+# Obtener fecha actual
+fecha = datetime.now().strftime("%d/%m/%Y")
+
+# Diccionario para guardar la asistencia
+asistencia = {}
+
+print("===================================")
+print("       LISTA DE ASISTENCIA")
+print("===================================")
+print("Fecha:", fecha)
+print()
+
+# Registrar asistencia
+for estudiante in estudiantes:
+    print(f"Estudiante: {estudiante}")
+    print("1. Presente")
+    print("2. Ausente")
+    print("3. Tarde")
+
+    opcion = input("Seleccione una opción: ")
+
+    if opcion == "1":
+        asistencia[estudiante] = "Presente"
+    elif opcion == "2":
+        asistencia[estudiante] = "Ausente"
+    elif opcion == "3":
+        asistencia[estudiante] = "Tarde"
+    else:
+        asistencia[estudiante] = "Sin registrar"
+
+    print()
+
+# Mostrar resultados
+print("===================================")
+print("        RESUMEN DE ASISTENCIA")
+print("===================================")
+
+for estudiante, estado in asistencia.items():
+    print(f"{estudiante:<25} {estado}")
+
+# Contadores
+presentes = list(asistencia.values()).count("Presente")
+ausentes = list(asistencia.values()).count("Ausente")
+tardes = list(asistencia.values()).count("Tarde")
+
+print("-----------------------------------")
+print("Presentes:", presentes)
+print("Ausentes:", ausentes)
+print("Tardes:", tardes)
+print("===================================")
