@@ -1,0 +1,28 @@
+# Backend Python
+backend/.venv/
+backend/__pycache__/
+backend/**/__pycache__/
+*.pyc
+*.pyo
+
+# Variables privadas
+backend/.env
+.env
+
+# SQLite local si existiera
+backend/db.sqlite3
+
+# Frontend
+frontend/node_modules/
+frontend/.next/
+frontend/.env.local
+
+# Sistema / editor
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Archivos comprimidos de prueba
+*.zip
+*.rar
