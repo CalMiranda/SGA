@@ -96,3 +96,8 @@ npm run build
 ```
 
 La configuración actual del backend está preparada para desarrollo local.
+
+## Planificación del producto
+
+El [backlog de la fase 2](docs/gestion-producto.md) recoge las prioridades,
+criterios de aceptación y la validación pendiente con un usuario piloto.
