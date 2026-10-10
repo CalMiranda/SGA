@@ -12,6 +12,8 @@ urlpatterns = [
 
     # API del Sistema de Gestión de Asistencia
     path("api/", include("personas.urls")),
+    path("api/", include("horarios.urls")),
+    path("api/", include("asistencias.urls")),
 
     # Esquema OpenAPI
     path(

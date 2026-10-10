@@ -46,6 +46,8 @@ INSTALLED_APPS = [
     "drf_spectacular",
 
     "personas",
+    "horarios",
+    "asistencias",
 ]
 
 MIDDLEWARE = [

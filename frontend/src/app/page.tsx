@@ -1,5 +1,6 @@
 "use client";
 
+import SGANav from "@/components/SGANav";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 
 type Persona = {
@@ -131,6 +132,8 @@ export default function Home() {
           </p>
         </div>
       </header>
+
+      <SGANav />
 
       <div className="mx-auto grid max-w-6xl gap-6 px-6 py-8 lg:grid-cols-3">
 
