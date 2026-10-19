@@ -20,6 +20,10 @@ const opciones = [
     nombre: "Asistencia",
     ruta: "/asistencias",
   },
+  {
+    nombre: "Incidencias",
+    ruta: "/incidencias",
+  },
 ];
 
 export default function SGANav() {

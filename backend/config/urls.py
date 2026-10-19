@@ -14,6 +14,7 @@ urlpatterns = [
     path("api/", include("personas.urls")),
     path("api/", include("horarios.urls")),
     path("api/", include("asistencias.urls")),
+    path("api/", include("incidencias.urls")),
 
     # Esquema OpenAPI
     path(

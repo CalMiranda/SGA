@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     "personas",
     "horarios",
     "asistencias",
+    "incidencias",
 ]
 
 MIDDLEWARE = [
