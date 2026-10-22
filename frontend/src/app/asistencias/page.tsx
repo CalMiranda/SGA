@@ -1,716 +1,203 @@
 "use client";
 
-import SGANav from "@/components/SGANav";
+import Link from "next/link";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
-import {
-  FormEvent,
-  useCallback,
-  useEffect,
-  useState,
-} from "react";
+import AppShell, { Icon } from "@/components/AppShell";
+import { useSGAAccess } from "@/lib/access";
+import { apiFetch } from "@/lib/api";
+import { toCsv } from "@/lib/csv";
 
-type Persona = {
-  id: number;
-  codigo: string;
-  nombres: string;
-  apellidos: string;
-  activo: boolean;
-};
+type Persona = { id: number; codigo: string; nombres: string; apellidos: string; correo: string; rol: string; area: string; activo: boolean };
+type Horario = { id: number; nombre: string; hora_entrada: string; hora_salida: string; tipo: string; dias_aplicables: string[]; area: string; activo: boolean };
+type Registro = { id: number; persona: number; persona_codigo: string; persona_nombre: string; persona_rol: string; persona_area: string; horario: number; horario_nombre: string; fecha: string; hora_registro: string; estado: string; estado_display: string; observacion: string };
+const stateOptions = [
+  { value: "presente", label: "Presente", tone: "green" },
+  { value: "tardanza", label: "Tardanza", tone: "amber" },
+  { value: "ausencia", label: "Ausencia", tone: "red" },
+  { value: "justificada", label: "Justificada", tone: "purple" },
+];
 
-type Horario = {
-  id: number;
-  nombre: string;
-  hora_entrada: string;
-  hora_salida: string;
-  tolerancia_minutos: number;
-};
-
-type Asistencia = {
-  id: number;
-  persona: number;
-  persona_codigo: string;
-  persona_nombre: string;
-  horario: number;
-  horario_nombre: string;
-  fecha: string;
-  hora_registro: string;
-  estado: string;
-  estado_display: string;
-  observacion: string;
-  fecha_creacion: string;
-};
-
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ||
-  "http://127.0.0.1:8000";
+function todayKey() {
+  const date = new Date();
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
 
 export default function AsistenciasPage() {
-  const [personas, setPersonas] = useState<Persona[]>([]);
-  const [horarios, setHorarios] = useState<Horario[]>([]);
-  const [asistencias, setAsistencias] = useState<Asistencia[]>([]);
-
-  const [persona, setPersona] = useState("");
-  const [horario, setHorario] = useState("");
-  const [fecha, setFecha] = useState("");
-  const [horaRegistro, setHoraRegistro] = useState("");
-  const [estado, setEstado] = useState("presente");
-  const [observacion, setObservacion] = useState("");
-
-  const [mensaje, setMensaje] = useState("");
+  const { canWrite } = useSGAAccess();
+  const [people, setPeople] = useState<Persona[]>([]);
+  const [schedules, setSchedules] = useState<Horario[]>([]);
+  const [records, setRecords] = useState<Registro[]>([]);
+  const [person, setPerson] = useState("");
+  const [personCode, setPersonCode] = useState("");
+  const [schedule, setSchedule] = useState("");
+  const [date, setDate] = useState(todayKey);
+  const [time, setTime] = useState(() => new Date().toTimeString().slice(0, 5));
+  const [status, setStatus] = useState("presente");
+  const [observation, setObservation] = useState("");
+  const [search, setSearch] = useState("");
+  const [areaFilter, setAreaFilter] = useState("todas");
+  const [scheduleFilter, setScheduleFilter] = useState("todos");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [cargando, setCargando] = useState(false);
 
-  const cargarDatos = useCallback(async () => {
-    setError("");
-
+  const loadData = useCallback(async () => {
     try {
-      const [
-        responsePersonas,
-        responseHorarios,
-        responseAsistencias,
-      ] = await Promise.all([
-        fetch(`${API_URL}/api/personas/`, {
-          cache: "no-store",
-        }),
-        fetch(`${API_URL}/api/horarios/`, {
-          cache: "no-store",
-        }),
-        fetch(`${API_URL}/api/asistencias/`, {
-          cache: "no-store",
-        }),
+      const [personResponse, scheduleResponse, recordResponse] = await Promise.all([
+        apiFetch("/api/personas/", { cache: "no-store" }),
+        apiFetch("/api/horarios/", { cache: "no-store" }),
+        apiFetch("/api/asistencias/", { cache: "no-store" }),
       ]);
-
-      if (
-        !responsePersonas.ok ||
-        !responseHorarios.ok ||
-        !responseAsistencias.ok
-      ) {
-        throw new Error();
+      if (!personResponse.ok || !scheduleResponse.ok || !recordResponse.ok) throw new Error("No se pudo cargar la información de asistencia.");
+      const [personData, scheduleData, recordData]: [Persona[], Horario[], Registro[]] = await Promise.all([
+        personResponse.json(), scheduleResponse.json(), recordResponse.json(),
+      ]);
+      setPeople(personData);
+      setSchedules(scheduleData);
+      if (scheduleData.some((item) => item.activo)) {
+        setSchedule((current) => current || String(scheduleData.find((item) => item.activo)?.id ?? ""));
       }
-
-      const dataPersonas: Persona[] =
-        await responsePersonas.json();
-
-      const dataHorarios: Horario[] =
-        await responseHorarios.json();
-
-      const dataAsistencias: Asistencia[] =
-        await responseAsistencias.json();
-
-      setPersonas(
-        dataPersonas.filter((persona) => persona.activo)
-      );
-
-      setHorarios(dataHorarios);
-      setAsistencias(dataAsistencias);
-    } catch {
-      setError(
-        "No fue posible obtener la información del backend."
-      );
+      setRecords(recordData);
+      setError("");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No se pudo cargar la información de asistencia.");
+    } finally {
+      setLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    cargarDatos();
-  }, [cargarDatos]);
+useEffect(() => { void Promise.resolve().then(loadData); }, [loadData]);
 
-  async function registrarAsistencia(
-    event: FormEvent<HTMLFormElement>
-  ) {
+  const dayRecords = useMemo(() => records.filter((record) => record.fecha === date), [records, date]);
+  const totals = useMemo(() => dayRecords.reduce<Record<string, number>>((result, record) => {
+    result[record.estado] = (result[record.estado] ?? 0) + 1;
+    return result;
+  }, { presente: 0, tardanza: 0, ausencia: 0, justificada: 0 }), [dayRecords]);
+  const visibleRecords = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase();
+    return dayRecords.filter((record) => {
+      const matchQuery = !query || `${record.persona_codigo} ${record.persona_nombre}`.toLocaleLowerCase().includes(query);
+      const matchArea = areaFilter === "todas" || record.persona_area === areaFilter;
+      const matchSchedule = scheduleFilter === "todos" || record.horario === Number(scheduleFilter);
+      return matchQuery && matchArea && matchSchedule;
+    });
+  }, [dayRecords, search, areaFilter, scheduleFilter]);
+  const areas = useMemo(() => [...new Set(people.map((item) => item.area).filter(Boolean))].sort((a, b) => a.localeCompare(b)), [people]);
+
+  async function saveRecord(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
-    setMensaje("");
+    setSaving(true);
+    setMessage("");
     setError("");
-
-    if (
-      !persona ||
-      !horario ||
-      !fecha ||
-      !horaRegistro ||
-      !estado
-    ) {
-      setError(
-        "Completa todos los campos obligatorios."
-      );
-      return;
-    }
-
-    setCargando(true);
-
     try {
-      const response = await fetch(
-        `${API_URL}/api/asistencias/`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            persona: Number(persona),
-            horario: Number(horario),
-            fecha,
-            hora_registro: horaRegistro,
-            estado,
-            observacion: observacion.trim(),
-          }),
-        }
-      );
-
-      const data = await response.json();
-
+      const response = await apiFetch("/api/asistencias/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ persona: Number(person), horario: Number(schedule), fecha: date, hora_registro: time, estado: status, observacion: observation.trim() }),
+      });
       if (!response.ok) {
-        if (data.non_field_errors) {
-          setError(data.non_field_errors[0]);
-        } else if (
-          Array.isArray(data) &&
-          data.length > 0
-        ) {
-          setError(data[0]);
-        } else if (typeof data === "object") {
-          const primerError = Object.values(data)[0];
-
-          if (Array.isArray(primerError)) {
-            setError(String(primerError[0]));
-          } else {
-            setError(
-              "No fue posible registrar la asistencia."
-            );
-          }
-        } else {
-          setError(
-            "No fue posible registrar la asistencia."
-          );
-        }
-
-        return;
+        const detail = await response.json().catch(() => ({}));
+        const first = Object.values(detail as Record<string, unknown>)[0];
+        if (Array.isArray(first) && String(first[0]).includes("Ya existe")) throw new Error(String(first[0]));
+        if (Array.isArray(first)) throw new Error(String(first[0]));
+        throw new Error("No fue posible registrar la asistencia. Verifica persona, horario y fecha.");
       }
-
-      setPersona("");
-      setHorario("");
-      setFecha("");
-      setHoraRegistro("");
-      setEstado("presente");
-      setObservacion("");
-
-      setMensaje(
-        "Asistencia registrada correctamente."
-      );
-
-      await cargarDatos();
-    } catch {
-      setError(
-        "No se pudo conectar con el backend."
-      );
+      setMessage("Asistencia registrada correctamente.");
+      setPerson("");
+      setPersonCode("");
+      setObservation("");
+      await loadData();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No fue posible registrar la asistencia.");
     } finally {
-      setCargando(false);
+      setSaving(false);
     }
+  }
+
+  function exportCsv() {
+    const values = [["Fecha", "Hora", "Código", "Persona", "Horario", "Estado", "Observación"], ...visibleRecords.map((record) => [record.fecha, record.hora_registro, record.persona_codigo, record.persona_nombre, record.horario_nombre, record.estado_display, record.observacion])];
+    const csv = toCsv(values);
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `asistencia-${date}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
   }
 
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        background: "#f1f5f9",
-        color: "#0f172a",
-      }}
-    >
-      <header
-        style={{
-          background: "#0f1b35",
-          color: "white",
-          padding: "28px 32px",
-        }}
-      >
-        <div
-          style={{
-            maxWidth: "1400px",
-            margin: "0 auto",
-          }}
-        >
-          <h1
-            style={{
-              margin: 0,
-              fontSize: "32px",
-            }}
-          >
-            Sistema de Gestión de Asistencia
-          </h1>
+    <AppShell title="Registro de Asistencia" subtitle="Control diario de entrada, salida y clasificación de asistencia">
+      {message && <div className="alert alert-success" role="status">{message}</div>}
+      {error && <div className="alert alert-error" role="alert">{error}</div>}
+      <section className="panel filter-row">
+        <label className="field-label">Fecha<input className="control" type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label>
+        <label className="field-label">Grupo / Área<select className="control-select" value={areaFilter} onChange={(event) => setAreaFilter(event.target.value)}><option value="todas">Todas las áreas</option>{areas.map((area) => <option value={area} key={area}>{area}</option>)}</select></label>
+        <label className="field-label">Horario<select className="control-select" value={scheduleFilter} onChange={(event) => setScheduleFilter(event.target.value)}><option value="todos">Todos los horarios</option>{schedules.map((item) => <option value={item.id} key={item.id}>{item.nombre}</option>)}</select></label>
+        <label className="field-label">Buscar persona o código<input className="control" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Nombre, código o identificación..." /></label>
+      </section>
 
-          <p
-            style={{
-              margin: "8px 0 0",
-              color: "#cbd5e1",
-              fontSize: "17px",
-            }}
-          >
-            Registro de asistencia
-          </p>
-        </div>
-      </header>
-
-      <SGANav />
-
-      <section
-        style={{
-          maxWidth: "1400px",
-          margin: "0 auto",
-          padding: "40px 32px",
-          display: "grid",
-          gridTemplateColumns:
-            "minmax(350px, 430px) 1fr",
-          gap: "28px",
-          alignItems: "start",
-        }}
-      >
-        <form
-          onSubmit={registrarAsistencia}
-          style={{
-            background: "white",
-            borderRadius: "16px",
-            padding: "30px",
-            boxShadow:
-              "0 2px 8px rgba(15, 23, 42, 0.08)",
-          }}
-        >
-          <h2
-            style={{
-              marginTop: 0,
-              marginBottom: "6px",
-              fontSize: "25px",
-            }}
-          >
-            Registrar asistencia
-          </h2>
-
-          <p
-            style={{
-              marginTop: 0,
-              marginBottom: "28px",
-              color: "#64748b",
-            }}
-          >
-            Selecciona la persona, horario y estado
-            correspondiente.
-          </p>
-
-          <label style={labelStyle}>
-            Persona
-          </label>
-
-          <select
-            value={persona}
-            onChange={(event) =>
-              setPersona(event.target.value)
-            }
-            style={inputStyle}
-          >
-            <option value="">
-              Selecciona una persona
-            </option>
-
-            {personas.map((item) => (
-              <option
-                key={item.id}
-                value={item.id}
-              >
-                {item.codigo} - {item.nombres}{" "}
-                {item.apellidos}
-              </option>
-            ))}
-          </select>
-
-          <label style={labelStyle}>
-            Horario
-          </label>
-
-          <select
-            value={horario}
-            onChange={(event) =>
-              setHorario(event.target.value)
-            }
-            style={inputStyle}
-          >
-            <option value="">
-              Selecciona un horario
-            </option>
-
-            {horarios.map((item) => (
-              <option
-                key={item.id}
-                value={item.id}
-              >
-                {item.nombre}
-              </option>
-            ))}
-          </select>
-
-          <label style={labelStyle}>
-            Fecha
-          </label>
-
-          <input
-            type="date"
-            value={fecha}
-            onChange={(event) =>
-              setFecha(event.target.value)
-            }
-            style={inputStyle}
-          />
-
-          <label style={labelStyle}>
-            Hora de registro
-          </label>
-
-          <input
-            type="time"
-            value={horaRegistro}
-            onChange={(event) =>
-              setHoraRegistro(event.target.value)
-            }
-            style={inputStyle}
-          />
-
-          <label style={labelStyle}>
-            Estado
-          </label>
-
-          <select
-            value={estado}
-            onChange={(event) =>
-              setEstado(event.target.value)
-            }
-            style={inputStyle}
-          >
-            <option value="presente">
-              Presente
-            </option>
-
-            <option value="tardanza">
-              Tardanza
-            </option>
-
-            <option value="ausencia">
-              Ausencia
-            </option>
-
-            <option value="justificada">
-              Justificada
-            </option>
-          </select>
-
-          <label style={labelStyle}>
-            Observación
-          </label>
-
-          <textarea
-            value={observacion}
-            onChange={(event) =>
-              setObservacion(event.target.value)
-            }
-            placeholder="Observación opcional..."
-            maxLength={250}
-            style={{
-              ...inputStyle,
-              minHeight: "90px",
-              resize: "vertical",
-              fontFamily: "inherit",
-            }}
-          />
-
-          <button
-            type="submit"
-            disabled={cargando}
-            style={{
-              width: "100%",
-              padding: "14px",
-              border: "none",
-              borderRadius: "10px",
-              background: cargando
-                ? "#64748b"
-                : "#0f1b35",
-              color: "white",
-              fontSize: "17px",
-              cursor: cargando
-                ? "not-allowed"
-                : "pointer",
-            }}
-          >
-            {cargando
-              ? "Registrando..."
-              : "Registrar asistencia"}
-          </button>
-
-          {mensaje && (
-            <div style={successStyle}>
-              {mensaje}
-            </div>
+      <div className="attendance-layout">
+        <section id="attendance-entry" className="panel panel-pad">
+          <div className="panel-heading"><div className="panel-title"><span className="panel-title-icon tone-green"><Icon name="plus" size={17} /></span><div><h2>Registrar asistencia</h2><p>Selecciona la persona y el horario para crear un registro</p></div></div></div>
+          {!canWrite ? <p className="access-note">Tu rol permite consultar los registros; el ingreso de asistencia está reservado a Administración y Gestión de asistencia.</p> : loading ? <div className="loading-state">Cargando personas y horarios...</div> : people.length === 0 || schedules.length === 0 ? <div className="empty-state">Para registrar asistencia, agrega al menos una persona activa y un horario.</div> : (
+            <form onSubmit={saveRecord} className="form-fields">
+              <div className="attendance-form-grid">
+                <label className="field-label">Código o identificación<input className="control" value={personCode} onChange={(event) => { const code = event.target.value; setPersonCode(code); const match = people.find((item) => item.codigo.toLocaleLowerCase() === code.trim().toLocaleLowerCase()); setPerson(match ? String(match.id) : ""); }} placeholder="Ej. UNI001" /></label>
+                <label className="field-label">Persona *<select className="control-select" required value={person} onChange={(event) => { const selected = people.find((item) => String(item.id) === event.target.value); setPerson(event.target.value); setPersonCode(selected?.codigo ?? ""); }}><option value="">Buscar persona...</option>{people.filter((item) => item.activo).map((item) => <option key={item.id} value={item.id}>{item.codigo} · {item.nombres} {item.apellidos}</option>)}</select></label>
+                <label className="field-label">Hora *<input className="control" type="time" required value={time} onChange={(event) => setTime(event.target.value)} /></label>
+                <label className="field-label">Estado *<span className="state-select-grid">{stateOptions.map((option) => <label className={`state-choice tone-${option.tone}`} key={option.value}><input type="radio" name="attendance-state" value={option.value} checked={status === option.value} onChange={(event) => setStatus(event.target.value)} /><span>{option.label}</span></label>)}</span></label>
+              </div>
+              <label className="field-label">Observación<textarea className="control-textarea" maxLength={250} value={observation} onChange={(event) => setObservation(event.target.value)} placeholder="Añade una observación opcional" /></label>
+              <div className="attendance-submit-row"><span className="muted small">Un registro por persona, horario y fecha.</span><button className="button button-primary" type="submit" disabled={saving}><Icon name="plus" size={16} />{saving ? "Registrando..." : "Registrar"}</button></div>
+            </form>
           )}
+        </section>
 
-          {error && (
-            <div style={errorStyle}>
-              {error}
-            </div>
-          )}
-        </form>
-
-        <section
-          style={{
-            background: "white",
-            borderRadius: "16px",
-            padding: "30px",
-            boxShadow:
-              "0 2px 8px rgba(15, 23, 42, 0.08)",
-            minHeight: "540px",
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: "20px",
-              marginBottom: "24px",
-            }}
-          >
-            <div>
-              <h2
-                style={{
-                  margin: 0,
-                  fontSize: "25px",
-                }}
-              >
-                Registros de asistencia
-              </h2>
-
-              <p
-                style={{
-                  margin: "5px 0 0",
-                  color: "#64748b",
-                }}
-              >
-                Información obtenida mediante la API
-                REST del SGA.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={cargarDatos}
-              style={{
-                padding: "11px 18px",
-                background: "white",
-                border: "1px solid #cbd5e1",
-                borderRadius: "9px",
-                color: "#0f172a",
-                cursor: "pointer",
-              }}
-            >
-              Actualizar
-            </button>
-          </div>
-
-          <div
-            style={{
-              overflowX: "auto",
-            }}
-          >
-            <table
-              style={{
-                width: "100%",
-                borderCollapse: "collapse",
-              }}
-            >
-              <thead>
-                <tr
-                  style={{
-                    borderBottom:
-                      "1px solid #e2e8f0",
-                    color: "#475569",
-                    textAlign: "left",
-                  }}
-                >
-                  <th style={thStyle}>Fecha</th>
-                  <th style={thStyle}>Hora</th>
-                  <th style={thStyle}>Persona</th>
-                  <th style={thStyle}>Horario</th>
-                  <th style={thStyle}>Estado</th>
-                  <th style={thStyle}>Observación</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {asistencias.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={6}
-                      style={{
-                        padding: "35px 14px",
-                        textAlign: "center",
-                        color: "#64748b",
-                      }}
-                    >
-                      No hay registros de asistencia.
-                    </td>
-                  </tr>
-                ) : (
-                  asistencias.map((item) => (
-                    <tr
-                      key={item.id}
-                      style={{
-                        borderBottom:
-                          "1px solid #f1f5f9",
-                      }}
-                    >
-                      <td style={tdStyle}>
-                        {formatearFecha(item.fecha)}
-                      </td>
-
-                      <td style={tdStyle}>
-                        {formatearHora(
-                          item.hora_registro
-                        )}
-                      </td>
-
-                      <td style={tdStyle}>
-                        <strong>
-                          {item.persona_nombre}
-                        </strong>
-
-                        <div
-                          style={{
-                            color: "#64748b",
-                            fontSize: "13px",
-                            marginTop: "3px",
-                          }}
-                        >
-                          {item.persona_codigo}
-                        </div>
-                      </td>
-
-                      <td style={tdStyle}>
-                        {item.horario_nombre}
-                      </td>
-
-                      <td style={tdStyle}>
-                        <span
-                          style={estadoStyle(
-                            item.estado
-                          )}
-                        >
-                          {item.estado_display}
-                        </span>
-                      </td>
-
-                      <td style={tdStyle}>
-                        {item.observacion || "—"}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+        <section className="panel panel-pad">
+          <div className="panel-heading"><div className="panel-title"><span className="panel-title-icon"><Icon name="chart" size={17} /></span><div><h2>Resumen del día</h2><p>{formatDate(date)} · {dayRecords.length} registros</p></div></div></div>
+          <div className="day-summary">
+            <Summary tone="green" value={totals.presente} total={dayRecords.length} label="Presentes" />
+            <Summary tone="amber" value={totals.tardanza} total={dayRecords.length} label="Tardanzas" />
+            <Summary tone="red" value={totals.ausencia} total={dayRecords.length} label="Ausencias" />
+            <Summary tone="purple" value={totals.justificada} total={dayRecords.length} label="Justificadas" />
           </div>
         </section>
+      </div>
+
+      <div className="attendance-bottom-layout">
+      <section className="panel panel-pad attendance-list-panel">
+        <div className="panel-heading"><div className="panel-title"><span className="panel-title-icon"><Icon name="file" size={17} /></span><div><h2>Asistencia del día</h2><p>Entradas, salidas y estados registrados</p></div></div><button className="button button-secondary" type="button" onClick={exportCsv} disabled={!visibleRecords.length}><Icon name="download" size={15} />Exportar CSV</button></div>
+        {loading ? <div className="loading-state">Consultando registros...</div> : visibleRecords.length === 0 ? <div className="empty-state">No hay registros para los filtros seleccionados.</div> : <div className="table-wrap"><table className="data-table"><thead><tr><th>Hora</th><th>Código</th><th>Persona</th><th>Rol</th><th>Grupo / Área</th><th>Horario</th><th>Estado</th><th>Observación</th></tr></thead><tbody>{visibleRecords.map((record) => <tr key={record.id}><td>{record.hora_registro.slice(0, 5)}</td><td><strong>{record.persona_codigo}</strong></td><td>{record.persona_nombre}</td><td>{record.persona_rol}</td><td>{record.persona_area}</td><td>{record.horario_nombre}</td><td><Status value={record.estado} label={record.estado_display} /></td><td>{record.observacion || "—"}</td></tr>)}</tbody></table></div>}
+        <div className="table-footnote">Mostrando {visibleRecords.length} de {dayRecords.length} registros del día.</div>
       </section>
-    </main>
+      <section className="panel panel-pad attendance-quick-panel">
+        <div className="panel-heading"><div className="panel-title"><span className="panel-title-icon"><Icon name="arrow" size={17} /></span><div><h2>Acciones rápidas</h2><p>Herramientas para el control diario</p></div></div></div>
+        <div className="attendance-quick-grid">
+          {canWrite && <Link className="attendance-quick-card tone-green" href="#attendance-entry"><Icon name="people" /><span><strong>Registrar manualmente</strong><small>Agregar una asistencia</small></span><Icon name="arrow" size={15} /></Link>}
+          <Link className="attendance-quick-card tone-amber" href="/incidencias"><Icon name="alert" /><span><strong>Revisar incidencias</strong><small>Gestionar casos registrados</small></span><Icon name="arrow" size={15} /></Link>
+          <Link className="attendance-quick-card tone-purple" href="/reportes"><Icon name="chart" /><span><strong>Generar corte del día</strong><small>Consultar reportes</small></span><Icon name="arrow" size={15} /></Link>
+          <Link className="attendance-quick-card tone-blue" href="/horarios"><Icon name="calendar" /><span><strong>Gestionar horarios</strong><small>Ver las jornadas activas</small></span><Icon name="arrow" size={15} /></Link>
+        </div>
+        <button className="button button-secondary attendance-export" type="button" onClick={exportCsv} disabled={!visibleRecords.length}><Icon name="download" size={15} />Descargar registros CSV</button>
+      </section>
+      </div>
+    </AppShell>
   );
 }
 
-function formatearHora(hora: string) {
-  return hora.substring(0, 5);
+function Summary({ tone, value, total, label }: { tone: string; value: number; total: number; label: string }) {
+  return <div className={`summary-tile tone-${tone}`}><strong>{value}</strong><span>{label}</span><small>{total ? `${Math.round((value / total) * 100)}% del total` : "0% del total"}</small></div>;
 }
 
-function formatearFecha(fecha: string) {
-  const partes = fecha.split("-");
-
-  if (partes.length !== 3) {
-    return fecha;
-  }
-
-  return `${partes[2]}/${partes[1]}/${partes[0]}`;
+function Status({ value, label }: { value: string; label: string }) {
+  const className = value === "presente" ? "status-present" : value === "tardanza" ? "status-late" : value === "ausencia" ? "status-absent" : "status-justified";
+  return <span className={`status-pill ${className}`}>{label}</span>;
 }
 
-function estadoStyle(estado: string) {
-  const base = {
-    display: "inline-block",
-    padding: "6px 12px",
-    borderRadius: "999px",
-    fontSize: "13px",
-    fontWeight: 600,
-  };
-
-  if (estado === "presente") {
-    return {
-      ...base,
-      background: "#dcfce7",
-      color: "#15803d",
-    };
-  }
-
-  if (estado === "tardanza") {
-    return {
-      ...base,
-      background: "#fef3c7",
-      color: "#b45309",
-    };
-  }
-
-  if (estado === "ausencia") {
-    return {
-      ...base,
-      background: "#fee2e2",
-      color: "#b91c1c",
-    };
-  }
-
-  return {
-    ...base,
-    background: "#dbeafe",
-    color: "#1d4ed8",
-  };
+function formatDate(value: string) {
+  if (!value) return "—";
+  const [year, month, day] = value.split("-");
+  return year && month && day ? `${day}/${month}/${year}` : value;
 }
-
-const labelStyle = {
-  display: "block",
-  marginBottom: "8px",
-  fontWeight: 600,
-} as const;
-
-const inputStyle = {
-  width: "100%",
-  boxSizing: "border-box",
-  padding: "13px 14px",
-  marginBottom: "20px",
-  border: "1px solid #cbd5e1",
-  borderRadius: "9px",
-  fontSize: "16px",
-  background: "white",
-  outline: "none",
-} as const;
-
-const thStyle = {
-  padding: "14px",
-  fontWeight: 600,
-  whiteSpace: "nowrap",
-} as const;
-
-const tdStyle = {
-  padding: "16px 14px",
-  verticalAlign: "middle",
-} as const;
-
-const successStyle = {
-  marginTop: "18px",
-  padding: "14px",
-  background: "#ecfdf5",
-  color: "#15803d",
-  borderRadius: "10px",
-} as const;
-
-const errorStyle = {
-  marginTop: "18px",
-  padding: "14px",
-  background: "#fef2f2",
-  color: "#b91c1c",
-  borderRadius: "10px",
-} as const;

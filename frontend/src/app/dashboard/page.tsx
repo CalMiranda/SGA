@@ -1,618 +1,207 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import SGANav from "@/components/SGANav";
+import AppShell, { Icon } from "@/components/AppShell";
+import { apiFetch } from "@/lib/api";
 
-type Persona = {
-  id: number;
-  codigo: string;
-  nombres: string;
-  apellidos: string;
-  activo: boolean;
-};
-
-type Horario = {
-  id: number;
-  nombre: string;
-  hora_entrada: string;
-  hora_salida: string;
-  tolerancia_minutos: number;
-};
-
+type Persona = { id: number; activo: boolean; rol: string; area: string };
+type Horario = { id: number; nombre: string; activo: boolean };
 type Asistencia = {
   id: number;
-  persona: number;
   persona_codigo: string;
   persona_nombre: string;
-  horario: number;
+  persona_rol: string;
+  persona_area: string;
   horario_nombre: string;
   fecha: string;
   hora_registro: string;
   estado: string;
   estado_display: string;
   observacion: string;
+  fecha_creacion: string;
 };
 
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ||
-  "http://127.0.0.1:8000";
+const colors: Record<string, string> = {
+  presente: "#173c68",
+  tardanza: "#f2aa24",
+  ausencia: "#e94d59",
+  justificada: "#357de0",
+};
 
 export default function DashboardPage() {
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [horarios, setHorarios] = useState<Horario[]>([]);
   const [asistencias, setAsistencias] = useState<Asistencia[]>([]);
-
-  const [cargando, setCargando] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const cargarDashboard = useCallback(async () => {
-    setCargando(true);
-    setError("");
-
+  const loadDashboard = useCallback(async () => {
     try {
-      const [
-        responsePersonas,
-        responseHorarios,
-        responseAsistencias,
-      ] = await Promise.all([
-        fetch(`${API_URL}/api/personas/`, {
-          cache: "no-store",
-        }),
-        fetch(`${API_URL}/api/horarios/`, {
-          cache: "no-store",
-        }),
-        fetch(`${API_URL}/api/asistencias/`, {
-          cache: "no-store",
-        }),
+      const [peopleResponse, schedulesResponse, attendanceResponse] = await Promise.all([
+        apiFetch("/api/personas/", { cache: "no-store" }),
+        apiFetch("/api/horarios/", { cache: "no-store" }),
+        apiFetch("/api/asistencias/", { cache: "no-store" }),
       ]);
-
-      if (
-        !responsePersonas.ok ||
-        !responseHorarios.ok ||
-        !responseAsistencias.ok
-      ) {
-        throw new Error();
+      if (!peopleResponse.ok || !schedulesResponse.ok || !attendanceResponse.ok) {
+        throw new Error("No fue posible consultar todos los módulos del dashboard.");
       }
-
-      const dataPersonas: Persona[] =
-        await responsePersonas.json();
-
-      const dataHorarios: Horario[] =
-        await responseHorarios.json();
-
-      const dataAsistencias: Asistencia[] =
-        await responseAsistencias.json();
-
-      setPersonas(dataPersonas);
-      setHorarios(dataHorarios);
-      setAsistencias(dataAsistencias);
-    } catch {
-      setError(
-        "No fue posible cargar la información del dashboard."
-      );
+      const [people, schedules, records]: [Persona[], Horario[], Asistencia[]] = await Promise.all([
+        peopleResponse.json(), schedulesResponse.json(), attendanceResponse.json(),
+      ]);
+      setPersonas(people);
+      setHorarios(schedules);
+      setAsistencias(records);
+      setError("");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No fue posible cargar el dashboard.");
     } finally {
-      setCargando(false);
+      setLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    cargarDashboard();
-  }, [cargarDashboard]);
+useEffect(() => { void Promise.resolve().then(loadDashboard); }, [loadDashboard]);
 
-  const fechaHoy = useMemo(() => {
-    const fecha = new Date();
+  const today = localDateKey(new Date());
+  const todayRecords = useMemo(() => asistencias.filter((item) => item.fecha === today), [asistencias, today]);
+  const counts = useMemo(() => countStatuses(todayRecords), [todayRecords]);
+  const week = useMemo(() => {
+    const max = new Date();
+    max.setHours(0, 0, 0, 0);
+    return Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(max);
+      date.setDate(max.getDate() - (6 - index));
+      const key = localDateKey(date);
+      const dayRecords = asistencias.filter((item) => item.fecha === key);
+      return { key, label: new Intl.DateTimeFormat("es-NI", { weekday: "short" }).format(date).replace(".", ""), counts: countStatuses(dayRecords) };
+    });
+  }, [asistencias]);
+  const weekMax = Math.max(1, ...week.map((day) => Object.values(day.counts).reduce((sum, value) => sum + value, 0)));
+  const recent = todayRecords.slice(0, 5);
 
-    const anio = fecha.getFullYear();
-
-    const mes = String(
-      fecha.getMonth() + 1
-    ).padStart(2, "0");
-
-    const dia = String(
-      fecha.getDate()
-    ).padStart(2, "0");
-
-    return `${anio}-${mes}-${dia}`;
-  }, []);
-
-  const asistenciasHoy = useMemo(
-    () =>
-      asistencias.filter(
-        (registro) => registro.fecha === fechaHoy
-      ),
-    [asistencias, fechaHoy]
-  );
-
-  const presentes = asistenciasHoy.filter(
-    (registro) => registro.estado === "presente"
-  ).length;
-
-  const tardanzas = asistenciasHoy.filter(
-    (registro) => registro.estado === "tardanza"
-  ).length;
-
-  const ausencias = asistenciasHoy.filter(
-    (registro) => registro.estado === "ausencia"
-  ).length;
-
-  const justificadas = asistenciasHoy.filter(
-    (registro) => registro.estado === "justificada"
-  ).length;
-
-  const personasActivas = personas.filter(
-    (persona) => persona.activo
-  ).length;
+  const donutBackground = useMemo(() => {
+    const total = Object.values(counts).reduce((sum, value) => sum + value, 0);
+    if (!total) return "conic-gradient(#e9eef5 0 100%)";
+    let cursor = 0;
+    const stops = Object.entries(colors).map(([status, color]) => {
+      const next = cursor + (counts[status] / total) * 100;
+      const stop = `${color} ${cursor}% ${next}%`;
+      cursor = next;
+      return stop;
+    });
+    return `conic-gradient(${stops.join(",")})`;
+  }, [counts]);
 
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        background: "#f1f5f9",
-        color: "#0f172a",
-      }}
-    >
-      <header
-        style={{
-          background: "#0f1b35",
-          color: "white",
-          padding: "28px 32px",
-        }}
-      >
-        <div
-          style={{
-            maxWidth: "1400px",
-            margin: "0 auto",
-          }}
-        >
-          <h1
-            style={{
-              margin: 0,
-              fontSize: "32px",
-            }}
-          >
-            Sistema de Gestión de Asistencia
-          </h1>
-
-          <p
-            style={{
-              margin: "8px 0 0",
-              color: "#cbd5e1",
-              fontSize: "17px",
-            }}
-          >
-            Dashboard
-          </p>
-        </div>
-      </header>
-
-      <SGANav />
-
-      <section
-        style={{
-          maxWidth: "1400px",
-          margin: "0 auto",
-          padding: "40px 32px",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: "20px",
-            marginBottom: "28px",
-          }}
-        >
-          <div>
-            <h2
-              style={{
-                margin: 0,
-                fontSize: "28px",
-              }}
-            >
-              Resumen general
-            </h2>
-
-            <p
-              style={{
-                margin: "6px 0 0",
-                color: "#64748b",
-              }}
-            >
-              Información obtenida directamente desde
-              los módulos del SGA.
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={cargarDashboard}
-            style={{
-              padding: "11px 18px",
-              background: "white",
-              border: "1px solid #cbd5e1",
-              borderRadius: "9px",
-              cursor: "pointer",
-            }}
-          >
-            Actualizar
-          </button>
+    <AppShell title="Dashboard" subtitle="Resumen general de los registros de asistencia institucional">
+      {error && <div className="alert alert-error" role="alert">{error}</div>}
+      {loading ? <section className="panel loading-state" role="status">Cargando información institucional...</section> : <>
+        <div className="metric-grid">
+          <Metric icon="check" tone="green" label="Asistencias de hoy" value={todayRecords.length} detail={`${personas.filter((person) => person.activo).length} personas activas`} />
+          <Metric icon="clock" tone="amber" label="Tardanzas" value={counts.tardanza} detail={share(counts.tardanza, todayRecords.length)} />
+          <Metric icon="people" tone="red" label="Ausencias" value={counts.ausencia} detail={share(counts.ausencia, todayRecords.length)} />
+          <Metric icon="file" tone="blue" label="Justificadas" value={counts.justificada} detail={share(counts.justificada, todayRecords.length)} />
         </div>
 
-        {error && (
-          <div
-            style={{
-              padding: "15px",
-              marginBottom: "24px",
-              borderRadius: "10px",
-              background: "#fef2f2",
-              color: "#b91c1c",
-            }}
-          >
-            {error}
+        <div className="dashboard-grid">
+          <section className="panel chart-panel weekly-panel">
+            <div className="panel-heading">
+              <div className="panel-title"><span className="panel-title-icon"><Icon name="chart" size={17} /></span><div><h2>Asistencia semanal</h2><p>Registros por estado en los últimos siete días</p></div></div>
+              <span className="small muted">Últimos 7 días</span>
+            </div>
+            <div className="chart-legend">
+              {Object.entries({ presente: "Presentes", tardanza: "Tardanzas", ausencia: "Ausencias", justificada: "Justificadas" }).map(([status, label]) => <span className="legend-item" key={status}><i className="legend-dot" style={{ "--dot-color": colors[status] } as React.CSSProperties} />{label}</span>)}
+            </div>
+            <div className="bar-chart" aria-label="Gráfico de registros de asistencia por día">
+              {week.map((day) => <div className="bar-column" key={day.key}>
+                <div className="bar-stack" title={`${day.key}: ${Object.values(day.counts).reduce((sum, count) => sum + count, 0)} registros`}>
+                  {Object.entries(colors).map(([status, color]) => <i key={status} className="bar" style={{ height: `${(day.counts[status] / weekMax) * 100}%`, "--bar-color": color } as React.CSSProperties} />)}
+                </div>
+                <span className="bar-label">{day.label}</span>
+              </div>)}
+            </div>
+          </section>
+
+          <section className="panel chart-panel states-panel">
+            <div className="panel-heading"><div className="panel-title"><span className="panel-title-icon"><Icon name="chart" size={17} /></span><div><h2>Distribución de estados</h2><p>Registros de asistencia de hoy</p></div></div></div>
+            <div className="donut-layout">
+              <div className="donut-chart" style={{ background: donutBackground }} aria-label="Distribución de estados de asistencia"><div className="donut-center"><strong>{todayRecords.length}</strong><small>registros</small></div></div>
+              <div className="legend-list">
+                {Object.entries({ presente: "Presentes", tardanza: "Tardanzas", ausencia: "Ausencias", justificada: "Justificadas" }).map(([status, label]) => <span className="legend-line" key={status}><i className="legend-dot" style={{ "--dot-color": colors[status] } as React.CSSProperties} /><span>{label}<br /><strong>{counts[status]} · {share(counts[status], todayRecords.length)}</strong></span></span>)}
+              </div>
+            </div>
+          </section>
+
+          <section className="panel chart-panel quick-panel">
+            <div className="panel-heading"><div className="panel-title"><span className="panel-title-icon"><Icon name="arrow" size={17} /></span><div><h2>Acciones rápidas</h2><p>Accesos a los módulos</p></div></div></div>
+            <div className="quick-grid">
+              <Quick href="/asistencias" icon="check" tone="green" label="Registrar asistencia" />
+              <Quick href="/horarios" icon="calendar" tone="blue" label="Gestionar horarios" />
+              <Quick href="/incidencias" icon="alert" tone="amber" label="Revisar incidencias" />
+              <Quick href="/reportes" icon="chart" tone="purple" label="Generar reporte" />
+            </div>
+            <div className="dashboard-counts"><span><Icon name="people" size={15} />{personas.filter((person) => person.activo).length} personas activas</span><span><Icon name="calendar" size={15} />{horarios.filter((item) => item.activo).length} horarios activos</span></div>
+          </section>
+
+        <section className="panel recent-panel dashboard-recent">
+          <div className="panel-heading">
+            <div className="panel-title"><span className="panel-title-icon"><Icon name="file" size={17} /></span><div><h2>Registros recientes</h2><p>Últimos registros de asistencia guardados</p></div></div>
+            <Link className="button button-secondary" href="/asistencias">Ver todos <Icon name="arrow" size={15} /></Link>
           </div>
-        )}
+          {recent.length === 0 ? <div className="empty-state">Todavía no hay registros de asistencia para hoy.</div> : <div className="table-wrap"><table className="data-table"><thead><tr><th>#</th><th>Fecha y hora</th><th>Persona</th><th>Rol</th><th>Grupo / Área</th><th>Estado</th><th>Observación</th></tr></thead><tbody>
+            {recent.map((record, index) => <tr key={record.id}><td>{index + 1}</td><td>{formatAttendanceTime(record.fecha, record.hora_registro)}</td><td><strong>{record.persona_nombre}</strong><small className="cell-secondary">{record.persona_codigo}</small></td><td>{record.persona_rol}</td><td>{record.persona_area}</td><td><Status value={record.estado} label={record.estado_display} /></td><td>{record.observacion || "—"}</td></tr>)}
+          </tbody></table></div>}
+        </section>
 
-        {cargando ? (
-          <div
-            style={{
-              padding: "40px",
-              background: "white",
-              borderRadius: "16px",
-            }}
-          >
-            Cargando información...
-          </div>
-        ) : (
-          <>
-            <section
-              style={{
-                display: "grid",
-                gridTemplateColumns:
-                  "repeat(auto-fit, minmax(210px, 1fr))",
-                gap: "20px",
-                marginBottom: "28px",
-              }}
-            >
-              <Tarjeta
-                titulo="Personas registradas"
-                valor={personas.length}
-                detalle={`${personasActivas} activas`}
-              />
-
-              <Tarjeta
-                titulo="Horarios configurados"
-                valor={horarios.length}
-                detalle="Horarios disponibles"
-              />
-
-              <Tarjeta
-                titulo="Registros de asistencia"
-                valor={asistencias.length}
-                detalle="Total acumulado"
-              />
-            </section>
-
-            <section
-              style={{
-                background: "white",
-                padding: "28px",
-                borderRadius: "16px",
-                boxShadow:
-                  "0 2px 8px rgba(15, 23, 42, 0.08)",
-                marginBottom: "28px",
-              }}
-            >
-              <div
-                style={{
-                  marginBottom: "22px",
-                }}
-              >
-                <h2
-                  style={{
-                    margin: 0,
-                    fontSize: "24px",
-                  }}
-                >
-                  Asistencia de hoy
-                </h2>
-
-                <p
-                  style={{
-                    margin: "6px 0 0",
-                    color: "#64748b",
-                  }}
-                >
-                  {formatearFecha(fechaHoy)}
-                </p>
-              </div>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns:
-                    "repeat(auto-fit, minmax(180px, 1fr))",
-                  gap: "18px",
-                }}
-              >
-                <TarjetaEstado
-                  titulo="Presentes"
-                  valor={presentes}
-                  tipo="presente"
-                />
-
-                <TarjetaEstado
-                  titulo="Tardanzas"
-                  valor={tardanzas}
-                  tipo="tardanza"
-                />
-
-                <TarjetaEstado
-                  titulo="Ausencias"
-                  valor={ausencias}
-                  tipo="ausencia"
-                />
-
-                <TarjetaEstado
-                  titulo="Justificadas"
-                  valor={justificadas}
-                  tipo="justificada"
-                />
-              </div>
-            </section>
-
-            <section
-              style={{
-                background: "white",
-                borderRadius: "16px",
-                padding: "28px",
-                boxShadow:
-                  "0 2px 8px rgba(15, 23, 42, 0.08)",
-              }}
-            >
-              <h2
-                style={{
-                  marginTop: 0,
-                  marginBottom: "6px",
-                  fontSize: "24px",
-                }}
-              >
-                Registros recientes
-              </h2>
-
-              <p
-                style={{
-                  marginTop: 0,
-                  marginBottom: "22px",
-                  color: "#64748b",
-                }}
-              >
-                Últimos registros de asistencia
-                almacenados en el sistema.
-              </p>
-
-              <div
-                style={{
-                  overflowX: "auto",
-                }}
-              >
-                <table
-                  style={{
-                    width: "100%",
-                    borderCollapse: "collapse",
-                  }}
-                >
-                  <thead>
-                    <tr
-                      style={{
-                        textAlign: "left",
-                        borderBottom:
-                          "1px solid #e2e8f0",
-                        color: "#475569",
-                      }}
-                    >
-                      <th style={thStyle}>Fecha</th>
-                      <th style={thStyle}>Hora</th>
-                      <th style={thStyle}>Persona</th>
-                      <th style={thStyle}>Horario</th>
-                      <th style={thStyle}>Estado</th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {asistencias
-                      .slice(0, 5)
-                      .map((registro) => (
-                        <tr
-                          key={registro.id}
-                          style={{
-                            borderBottom:
-                              "1px solid #f1f5f9",
-                          }}
-                        >
-                          <td style={tdStyle}>
-                            {formatearFecha(
-                              registro.fecha
-                            )}
-                          </td>
-
-                          <td style={tdStyle}>
-                            {registro.hora_registro.substring(
-                              0,
-                              5
-                            )}
-                          </td>
-
-                          <td style={tdStyle}>
-                            <strong>
-                              {registro.persona_nombre}
-                            </strong>
-
-                            <div
-                              style={{
-                                color: "#64748b",
-                                fontSize: "13px",
-                              }}
-                            >
-                              {registro.persona_codigo}
-                            </div>
-                          </td>
-
-                          <td style={tdStyle}>
-                            {registro.horario_nombre}
-                          </td>
-
-                          <td style={tdStyle}>
-                            {registro.estado_display}
-                          </td>
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          </>
-        )}
-      </section>
-    </main>
+        <section className="panel panel-pad activity-panel">
+          <div className="panel-heading"><div className="panel-title"><span className="panel-title-icon"><Icon name="clock" size={17} /></span><div><h2>Actividad reciente</h2><p>Movimientos de asistencia registrados hoy</p></div></div></div>
+          {recent.length === 0 ? <div className="empty-state">No hay actividad registrada hoy.</div> : <div className="activity-list">{recent.map((record) => <Activity key={record.id} record={record} />)}</div>}
+        </section>
+        </div>
+      </>}
+    </AppShell>
   );
 }
 
-function Tarjeta({
-  titulo,
-  valor,
-  detalle,
-}: {
-  titulo: string;
-  valor: number;
-  detalle: string;
-}) {
-  return (
-    <div
-      style={{
-        background: "white",
-        padding: "24px",
-        borderRadius: "16px",
-        boxShadow:
-          "0 2px 8px rgba(15, 23, 42, 0.08)",
-      }}
-    >
-      <p
-        style={{
-          margin: 0,
-          color: "#64748b",
-          fontWeight: 600,
-        }}
-      >
-        {titulo}
-      </p>
-
-      <strong
-        style={{
-          display: "block",
-          marginTop: "10px",
-          fontSize: "36px",
-        }}
-      >
-        {valor}
-      </strong>
-
-      <span
-        style={{
-          color: "#64748b",
-          fontSize: "14px",
-        }}
-      >
-        {detalle}
-      </span>
-    </div>
-  );
+function Metric({ icon, tone, label, value, detail }: { icon: string; tone: string; label: string; value: number; detail: string }) {
+  return <section className="panel metric-card"><span className={`metric-icon tone-${tone}`}><Icon name={icon} /></span><span className="metric-copy"><span>{label}</span><strong>{value.toLocaleString("es-NI")}</strong><small>{detail}</small></span></section>;
 }
 
-function TarjetaEstado({
-  titulo,
-  valor,
-  tipo,
-}: {
-  titulo: string;
-  valor: number;
-  tipo: string;
-}) {
-  const estilos: Record<
-    string,
-    {
-      background: string;
-      color: string;
-    }
-  > = {
-    presente: {
-      background: "#ecfdf5",
-      color: "#15803d",
-    },
-    tardanza: {
-      background: "#fffbeb",
-      color: "#b45309",
-    },
-    ausencia: {
-      background: "#fef2f2",
-      color: "#b91c1c",
-    },
-    justificada: {
-      background: "#eff6ff",
-      color: "#1d4ed8",
-    },
-  };
-
-  const estilo =
-    estilos[tipo] || estilos.justificada;
-
-  return (
-    <div
-      style={{
-        padding: "22px",
-        borderRadius: "14px",
-        background: estilo.background,
-      }}
-    >
-      <span
-        style={{
-          fontWeight: 600,
-          color: estilo.color,
-        }}
-      >
-        {titulo}
-      </span>
-
-      <strong
-        style={{
-          display: "block",
-          marginTop: "8px",
-          fontSize: "32px",
-          color: estilo.color,
-        }}
-      >
-        {valor}
-      </strong>
-    </div>
-  );
+function Quick({ href, icon, tone, label }: { href: string; icon: string; tone: string; label: string }) {
+  return <Link className={`quick-action tone-${tone}`} href={href}><Icon name={icon} />{label}</Link>;
 }
 
-function formatearFecha(fecha: string) {
-  const partes = fecha.split("-");
-
-  if (partes.length !== 3) {
-    return fecha;
-  }
-
-  return `${partes[2]}/${partes[1]}/${partes[0]}`;
+function Activity({ record }: { record: Asistencia }) {
+  const labels: Record<string, string> = { presente: "Se registró una asistencia", tardanza: "Se registró una tardanza", ausencia: "Se registró una ausencia", justificada: "Se registró una justificación" };
+  const icons: Record<string, string> = { presente: "check", tardanza: "clock", ausencia: "alert", justificada: "file" };
+  return <div className="activity-item"><span className={`activity-icon activity-${record.estado}`}><Icon name={icons[record.estado] ?? "file"} size={15} /></span><span className="activity-copy"><strong>{labels[record.estado] ?? "Se actualizó un registro"}</strong><small>{record.persona_nombre} · {record.persona_rol}</small><small>{record.persona_area} · {record.hora_registro.slice(0, 5)}</small></span></div>;
 }
 
-const thStyle = {
-  padding: "14px",
-  fontWeight: 600,
-} as const;
+export function Status({ value, label }: { value: string; label: string }) {
+  const className = value === "presente" ? "status-present" : value === "tardanza" ? "status-late" : value === "ausencia" ? "status-absent" : value === "justificada" ? "status-justified" : "status-info";
+  return <span className={`status-pill ${className}`}>{label}</span>;
+}
 
-const tdStyle = {
-  padding: "16px 14px",
-} as const;
+export function localDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+export function countStatuses(records: Pick<Asistencia, "estado">[]) {
+  return records.reduce<Record<string, number>>((result, record) => {
+    result[record.estado] = (result[record.estado] ?? 0) + 1;
+    return result;
+  }, { presente: 0, tardanza: 0, ausencia: 0, justificada: 0 });
+}
+
+function formatAttendanceTime(date: string, time: string) {
+  const value = new Date(`${date}T${time}`);
+  return Number.isNaN(value.getTime()) ? `${date} ${time.slice(0, 5)}` : new Intl.DateTimeFormat("es-NI", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(value);
+}
+
+function share(count: number, total: number) {
+  return total ? `${Math.round((count / total) * 100)}% del total` : "Sin registros";
+}
