@@ -11,6 +11,16 @@ class RegistroAsistenciaSerializer(serializers.ModelSerializer):
 
     persona_nombre = serializers.SerializerMethodField()
 
+    persona_rol = serializers.CharField(
+        source="persona.get_rol_display",
+        read_only=True,
+    )
+
+    persona_area = serializers.CharField(
+        source="persona.area",
+        read_only=True,
+    )
+
     horario_nombre = serializers.CharField(
         source="horario.nombre",
         read_only=True,
@@ -29,6 +39,8 @@ class RegistroAsistenciaSerializer(serializers.ModelSerializer):
             "persona",
             "persona_codigo",
             "persona_nombre",
+            "persona_rol",
+            "persona_area",
             "horario",
             "horario_nombre",
             "fecha",
@@ -46,7 +58,7 @@ class RegistroAsistenciaSerializer(serializers.ModelSerializer):
 
     validators = []
 
-    def get_persona_nombre(self, obj):
+    def get_persona_nombre(self, obj) -> str:
         return f"{obj.persona.nombres} {obj.persona.apellidos}".strip()
 
     def validate_persona(self, persona):

@@ -64,7 +64,7 @@ class IncidenciaSerializer(serializers.ModelSerializer):
             "fecha_creacion",
         ]
 
-    def get_persona_nombre(self, obj):
+    def get_persona_nombre(self, obj) -> str:
         persona = obj.asistencia.persona
 
         return (
@@ -72,7 +72,7 @@ class IncidenciaSerializer(serializers.ModelSerializer):
             f"{persona.apellidos}"
         ).strip()
 
-    def get_tiene_justificacion(self, obj):
+    def get_tiene_justificacion(self, obj) -> bool:
         return hasattr(obj, "justificacion")
 
 
@@ -131,7 +131,7 @@ class JustificacionSerializer(serializers.ModelSerializer):
 
         validators = []
 
-    def get_persona_nombre(self, obj):
+    def get_persona_nombre(self, obj) -> str:
         persona = obj.incidencia.asistencia.persona
 
         return (
