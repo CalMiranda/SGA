@@ -1,5 +1,6 @@
 from rest_framework import viewsets
 
+from gestion.audit import AuditModelViewSetMixin
 from .models import Incidencia, Justificacion
 from .serializers import (
     IncidenciaSerializer,
@@ -7,7 +8,7 @@ from .serializers import (
 )
 
 
-class IncidenciaViewSet(viewsets.ModelViewSet):
+class IncidenciaViewSet(AuditModelViewSetMixin, viewsets.ModelViewSet):
     """
     Servicio REST para administrar las incidencias
     asociadas a registros de asistencia del SGA.
@@ -22,7 +23,7 @@ class IncidenciaViewSet(viewsets.ModelViewSet):
     serializer_class = IncidenciaSerializer
 
 
-class JustificacionViewSet(viewsets.ModelViewSet):
+class JustificacionViewSet(AuditModelViewSetMixin, viewsets.ModelViewSet):
     """
     Servicio REST para registrar y revisar
     justificaciones asociadas a incidencias.

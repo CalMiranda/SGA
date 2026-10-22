@@ -1,10 +1,11 @@
 from rest_framework import viewsets
 
+from gestion.audit import AuditModelViewSetMixin
 from .models import Horario
 from .serializers import HorarioSerializer
 
 
-class HorarioViewSet(viewsets.ModelViewSet):
+class HorarioViewSet(AuditModelViewSetMixin, viewsets.ModelViewSet):
     """
     Servicio REST para administrar los horarios registrados en el SGA.
     """

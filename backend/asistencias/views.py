@@ -1,10 +1,11 @@
 from rest_framework import viewsets
 
+from gestion.audit import AuditModelViewSetMixin
 from .models import RegistroAsistencia
 from .serializers import RegistroAsistenciaSerializer
 
 
-class RegistroAsistenciaViewSet(viewsets.ModelViewSet):
+class RegistroAsistenciaViewSet(AuditModelViewSetMixin, viewsets.ModelViewSet):
     """
     Servicio REST para registrar y administrar
     la asistencia de las personas en el SGA.

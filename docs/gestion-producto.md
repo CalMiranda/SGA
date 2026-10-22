@@ -1,77 +1,79 @@
-# Gestión de producto del SGA — fase 2
+# Gestión del producto del SGA
 
-**Responsable del producto:** Axel Valle (Product Owner).
+**Product Owner:** Axel Ivan Valle Obando  
+**Scrum Master:** Milton Joan Bell Calderón  
+**Desarrollo, calidad y documentación:** Caleb Francisco Miranda Centeno, con
+participación de todo el equipo.
 
-Este documento traduce la retroalimentación de la fase 1 en decisiones de
-producto verificables. Las prioridades son una propuesta para acordar con el
-equipo y el usuario piloto; no indican que las funciones estén terminadas.
+## Objetivo del producto
 
-## Objetivo y alcance
+Desarrollar un sistema web que centralice el registro, la consulta y el
+seguimiento de la asistencia de empleados o estudiantes, para facilitar la
+administración y la preparación de reportes.
 
-**Objetivo general.** Desarrollar un sistema web que centralice el registro,
-consulta y seguimiento de la asistencia de empleados o estudiantes, para
-facilitar la administración y la generación de reportes.
+## Alcance previsto
 
-**Objetivos específicos:**
+La propuesta incluye autenticación y usuarios, gestión de personas, horarios,
+registro de asistencia, incidencias, justificaciones, reportes, indicadores y
+auditoría. Los diagramas UWE describen este alcance objetivo. La tabla siguiente
+separa las capacidades que ya aparecen en el código de las que todavía requieren
+desarrollo o validación.
 
-1. Modelar los procesos, el contenido y la navegación de la asistencia con UWE.
-2. Implementar una API REST y una interfaz para administrar personas, horarios
-   y registros de asistencia con datos persistentes.
-3. Validar con un usuario piloto los flujos prioritarios y ajustar el backlog
-   a partir de observaciones documentadas.
-4. Definir reportes de presencia, tardanza y ausencia que puedan contrastarse
-   con los registros originales.
+## Backlog y estado observado
 
-**Estado observado en el repositorio:** la aplicación ya permite registrar y
-listar personas mediante Next.js y Django REST Framework. El backend ofrece un
-CRUD de personas. Hay un listado provisional de asistencia por consola con
-datos fijos; no está integrado a la API ni guarda registros en PostgreSQL.
-Autenticación, horarios, incidencias y reportes aún requieren implementación.
-
-## Backlog priorizado
-
-| ID | Prioridad | Historia de usuario | Criterio de aceptación principal | Estado |
+| ID | Prioridad | Historia | Criterio principal | Estado en el repositorio |
 | --- | --- | --- | --- | --- |
-| SGA-01 | P0 | Como administrador, quiero registrar y consultar personas para preparar el padrón. | El código es único; nombres y apellidos son obligatorios; la lista muestra el estado activo. | Base funcional; validar con usuario. |
-| SGA-02 | P0 | Como usuario autorizado, quiero iniciar sesión para acceder solo a mis funciones. | Las rutas protegidas rechazan usuarios sin sesión y permiten cerrar sesión. | Pendiente. |
-| SGA-03 | P0 | Como administrador, quiero definir horarios para saber cuándo se espera una asistencia. | Cada horario tiene un período y una población asignada; se rechazan datos incompletos. | Pendiente. |
-| SGA-04 | P0 | Como operador, quiero registrar presencia, tardanza o ausencia para cada persona y jornada. | Cada registro queda asociado a una persona, fecha y horario; no se crean duplicados para la misma jornada; se puede consultar el resultado guardado. | Prototipo por consola; integración pendiente. |
-| SGA-05 | P0 | Como usuario del sistema, quiero recorrer Login, Dashboard y Registro de Asistencia sin rutas confusas. | Los wireframes y el mapa de navegación permiten completar el flujo principal y muestran los estados de error y vacío. | Pendiente. |
-| SGA-06 | P0 | Como equipo, queremos modelos UWE para mantener trazabilidad entre requisitos y solución. | Se entregan casos de uso de procesos y navegación, modelo de contenido y mapa de navegación con estereotipos UWE; cada modelo referencia las historias pertinentes. | Pendiente. |
-| SGA-07 | P1 | Como operador, quiero registrar una incidencia para explicar una ausencia o tardanza. | La incidencia queda vinculada a una asistencia, con motivo y fecha visibles al consultarla. | Pendiente. |
-| SGA-08 | P1 | Como administrador, quiero consultar un reporte por período para revisar tendencias. | Los totales de presente, tarde y ausente coinciden con los registros filtrados por fechas. | Pendiente. |
+| SGA-01 | P0 | Como administrador, quiero registrar y consultar personas para mantener el padrón. | Código único, campos obligatorios, estado activo e inactivo. | Implementado en interfaz y API REST. |
+| SGA-02 | P0 | Como usuario autorizado, quiero iniciar y cerrar sesión de forma segura. | Las rutas y recursos protegidos rechazan usuarios anónimos; se permite renovar y revocar sesión. | Implementado con JWT en cookies HttpOnly, CSRF, renovación, revocación y grupos de rol; requiere validación funcional. |
+| SGA-03 | P0 | Como administrador, quiero definir horarios para establecer los períodos de asistencia. | Nombre único, hora de entrada posterior a hora de salida validada y tolerancia no negativa. | Implementado en interfaz y API REST; no existe asignación de personas o grupos. |
+| SGA-04 | P0 | Como gestor, quiero registrar presencia, tardanza, ausencia o justificación. | Cada registro relaciona persona, horario, fecha y estado; se impiden duplicados por jornada. | Implementado en interfaz, API y modelo relacional. |
+| SGA-05 | P0 | Como usuario, quiero completar el flujo de navegación del sistema. | Login, Dashboard y módulos deben permitir comprender el recorrido y mostrar estados vacíos y errores. | Login, Dashboard, Personas, Horarios, Asistencia, Incidencias, Reportes, Auditoría, Configuración y Mi historial tienen rutas web según el rol. |
+| SGA-06 | P0 | Como equipo, queremos mantener trazabilidad entre requisitos y diseño. | Se presentan casos de uso de procesos y navegación, contenido y mapa de navegación con notación UWE. | Diagramas UWE editables y exportados incorporados al expediente del proyecto. |
+| SGA-07 | P1 | Como gestor, quiero documentar incidencias y justificaciones. | La incidencia se vincula con una asistencia y su justificación puede revisarse. | Incidencias y justificaciones implementadas en interfaz, API y modelos. |
+| SGA-08 | P1 | Como administrador, quiero analizar resultados por período y revisar acciones. | Los reportes se calculan sobre datos persistidos y la auditoría registra cambios. | Reportes, bitácora de auditoría y exportación CSV implementados. La aceptación con usuarios piloto sigue pendiente. |
+| SGA-09 | P1 | Como administrador, quiero crear y mantener cuentas con roles institucionales. | Contraseñas validadas, vinculación individual para Empleado / Estudiante y revocación de sesiones ante cambios de seguridad. | Configuración de cuentas y roles implementada en `/configuracion`, con acceso restringido a Administración. |
+| SGA-10 | P1 | Como empleado o estudiante, quiero consultar mi historial. | La API entrega únicamente las asistencias de la persona vinculada a mi cuenta. | Módulo `/mi-historial` implementado con filtros por período y estado, incidencias y exportación CSV personal. |
 
-**Orden propuesto:** validar SGA-01 con el piloto; acordar roles y horarios
-antes de cerrar SGA-02 y SGA-03; completar los modelos y prototipos de SGA-05
-y SGA-06 antes de implementar el flujo definitivo de SGA-04. Las incidencias y
-reportes se construyen sobre registros de asistencia persistentes.
+## Criterios de seguridad
+
+- No se permite acceso anónimo a los endpoints de negocio.
+- La aplicación no tiene registro público de cuentas; la administración crea los
+  usuarios institucionales.
+- Los JWT se mantienen en cookies `HttpOnly`; las escrituras requieren token
+  CSRF y se limitan intentos de inicio de sesión.
+- Administrador y Gestor de asistencia pueden leer y modificar los módulos operativos. Supervisor / Docente y Auditor / Dirección tienen acceso operativo de solo lectura. Administración gestiona cuentas; Administración y Auditor / Dirección consultan la bitácora.
+- Los grupos se generan al migrar la base de datos y el administrador asigna a cada
+  usuario su grupo. Las cuentas sin uno de esos roles no inician sesión.
+- El perfil Empleado / Estudiante se vincula a una ficha Persona activa y la API permite consultar únicamente las asistencias de esa ficha.
+- La bitácora registra actor, entidad, acción, fecha y nombres de campos modificados. No almacena contraseñas ni valores anteriores.
+- La autorización todavía no filtra por sede, área o grupo. La seguridad y la aceptación deben validarse con usuarios piloto antes del despliegue público.
 
 ## Validación con usuario piloto
 
-El Product Owner coordina una sesión con una persona que realmente registraría
-o supervisaría asistencia. No se debe afirmar que la validación ocurrió hasta
-tener fecha, consentimiento y hallazgos registrados.
+La UNI se utiliza como institución de referencia académica del proyecto. La
+selección de una unidad operativa como piloto y la designación de su persona de
+contacto siguen pendientes. El Product Owner debe coordinar una sesión con un operador real y registrar la fecha,
+las tareas realizadas, los errores observados y las mejoras acordadas. Hasta que
+se disponga de ese registro, la validación de aceptación y usabilidad se considera
+pendiente.
 
-| Tarea propuesta | Qué observar | Evidencia a registrar |
+| Tarea | Qué observar | Evidencia |
 | --- | --- | --- |
-| Registrar una persona y detectar un código repetido. | Comprensión de los campos y del mensaje de error. | Pasos completados, dudas y errores encontrados. |
-| Consultar el padrón y reconocer quién está activo. | Claridad del listado y del estado. | Tiempo aproximado y comentarios del usuario. |
-| Recorrer el prototipo de registro de asistencia. | Si entiende horario, fecha y opciones presente/tarde/ausente. | Puntos de confusión y cambios solicitados. |
+| Iniciar sesión y llegar al módulo correspondiente al rol. | Comprensión de los campos, mensajes, restricciones y cierre de sesión. | Resultado, dudas y tiempo aproximado. |
+| Registrar una persona y repetir su código. | Comprensión de campos y validación de duplicados. | Pasos completados y errores. |
+| Crear un horario y registrar asistencia. | Claridad de la fecha, horario, estado y mensajes. | Resultado y observaciones del operador. |
+| Registrar una incidencia y revisar una justificación. | Comprensión del vínculo con la asistencia. | Dudas, errores y cambios solicitados. |
 
-Después de la sesión, anotar los hallazgos sin datos personales innecesarios,
-clasificarlos por impacto, vincularlos con una historia y acordar con el equipo
-qué se corrige en el siguiente sprint. Si no se consigue piloto, el riesgo de
-falta de participación sigue abierto y debe informarse como tal.
+## Despliegue y responsabilidad ambiental
 
-## Criterio de cierre y responsabilidad ambiental
+La configuración de Docker prepara un despliegue con Next.js, Django, PostgreSQL
+y Caddy como proxy HTTPS. La publicación pública depende de un servidor, dominio,
+DNS y secretos de producción que el equipo debe configurar. No hay una URL pública
+ni mediciones de consumo disponibles para afirmar que el sistema ya está en
+producción o que haya producido ahorros cuantificados.
 
-Una historia se considera terminada cuando cumple sus criterios de aceptación,
-tiene comprobación funcional, documentación de los flujos afectados y revisión
-del Product Owner. Un prototipo o un diagrama por sí solos no acreditan una
-función implementada.
-
-El registro digital busca reducir hojas y transcripciones manuales. Para evitar
-consumo innecesario de infraestructura, el equipo revisará consultas y
-almacenamiento, y utilizará recursos compartidos o cloud cuando sea viable.
-Estas ventajas son objetivos de diseño; no se declaran ahorros de papel o
-energía sin mediciones.
+La solución digital puede reducir la dependencia de listas impresas y
+transcripciones. En el hosting se debe priorizar un servicio compartido y
+dimensionado al uso previsto, mantener solo los datos necesarios y respaldar la
+base de datos con una política definida. Los ahorros de papel o energía deben
+medirse antes de expresarse como resultados.
