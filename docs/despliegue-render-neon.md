@@ -5,6 +5,18 @@ interfaz Next.js. La interfaz envía `/api/`, `/admin/` y `/static/` a la API de
 el servidor para conservar un único origen en el navegador y mantener las
 cookies de sesión protegidas. PostgreSQL se aloja en Neon.
 
+## Estado de la publicación (22 de octubre de 2026)
+
+- Interfaz: https://sga-cal-miranda-web.onrender.com/login
+- Swagger UI: https://sga-cal-miranda-web.onrender.com/api/docs/
+- Esquema OpenAPI: https://sga-cal-miranda-web.onrender.com/api/schema/
+- La interfaz, el endpoint CSRF y el esquema devolvieron HTTP 200 desde la
+  dirección pública. El administrador inicial ingresó al panel.
+- El repositorio se conectó como repositorio público. Los cambios posteriores
+  a los pull requests 4 y 5 se publicaron manualmente desde Render.
+- Las variables `BOOTSTRAP_ADMIN_USERNAME` y `BOOTSTRAP_ADMIN_PASSWORD` siguen
+  guardadas en Render por decisión del responsable de la cuenta. No publicarlas.
+
 ## Preparación
 
 1. Crear un proyecto **Free** en Neon, de preferencia en una región cercana a
