@@ -1,12 +1,20 @@
 import type { NextConfig } from "next";
 
-const apiOrigin = new URL(
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000",
-).origin;
+const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const apiOrigin = /^https?:\/\//.test(apiBase) ? new URL(apiBase).origin : null;
+const internalApiOrigin = process.env.INTERNAL_API_ORIGIN;
 
 const nextConfig: NextConfig = {
   output: "standalone",
   turbopack: { root: process.cwd() },
+  async rewrites() {
+    if (!internalApiOrigin) return [];
+
+    return ["api", "admin", "static"].map((route) => ({
+      source: `/${route}/:path*`,
+      destination: `${internalApiOrigin}/${route}/:path*`,
+    }));
+  },
   async headers() {
     const scriptPolicy = process.env.NODE_ENV === "development"
       ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
@@ -21,7 +29,7 @@ const nextConfig: NextConfig = {
       "font-src 'self' data:",
       "style-src 'self' 'unsafe-inline'",
       scriptPolicy,
-      `connect-src 'self' ${apiOrigin}`,
+      `connect-src 'self'${apiOrigin ? ` ${apiOrigin}` : ""}`,
     ].join("; ");
 
     return [
