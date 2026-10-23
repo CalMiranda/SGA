@@ -9,6 +9,8 @@ COPY --from=dependencies /app/node_modules ./node_modules
 COPY . ./
 ARG NEXT_PUBLIC_API_URL=https://sga.example.org
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+ARG INTERNAL_API_ORIGIN
+ENV INTERNAL_API_ORIGIN=${INTERNAL_API_ORIGIN}
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
