@@ -6,6 +6,8 @@ const internalApiOrigin = process.env.INTERNAL_API_ORIGIN;
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // Django requiere la barra final en /api/; evitar que Next la elimine antes del proxy.
+  skipTrailingSlashRedirect: true,
   turbopack: { root: process.cwd() },
   async rewrites() {
     if (!internalApiOrigin) return [];
