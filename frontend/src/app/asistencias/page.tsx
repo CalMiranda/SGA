@@ -56,9 +56,6 @@ export default function AsistenciasPage() {
       ]);
       setPeople(personData);
       setSchedules(scheduleData);
-      if (scheduleData.some((item) => item.activo)) {
-        setSchedule((current) => current || String(scheduleData.find((item) => item.activo)?.id ?? ""));
-      }
       setRecords(recordData);
       setError("");
     } catch (cause) {
@@ -71,6 +68,20 @@ export default function AsistenciasPage() {
 useEffect(() => { void Promise.resolve().then(loadData); }, [loadData]);
 
   const dayRecords = useMemo(() => records.filter((record) => record.fecha === date), [records, date]);
+  const selectedPerson = useMemo(() => people.find((item) => String(item.id) === person), [people, person]);
+  const personSchedules = useMemo(() => schedules.filter((item) => {
+    if (!item.activo || !selectedPerson || item.area.toLocaleLowerCase() !== selectedPerson.area.toLocaleLowerCase()) return false;
+    if (selectedPerson.rol !== "estudiante") return true;
+    if (item.tipo !== "academico") return false;
+    const year = Number(selectedPerson.area.match(/^([1-5])[STM]\d+-SIS-S$/i)?.[1]);
+    const semester = romanSemester(item.nombre);
+    return !year || semester === year * 2 - 1 || semester === year * 2;
+  }), [schedules, selectedPerson]);
+  useEffect(() => {
+    if (!personSchedules.some((item) => String(item.id) === schedule)) {
+      setSchedule(String(personSchedules[0]?.id ?? ""));
+    }
+  }, [personSchedules, schedule]);
   const totals = useMemo(() => dayRecords.reduce<Record<string, number>>((result, record) => {
     result[record.estado] = (result[record.estado] ?? 0) + 1;
     return result;
@@ -146,6 +157,7 @@ useEffect(() => { void Promise.resolve().then(loadData); }, [loadData]);
               <div className="attendance-form-grid">
                 <label className="field-label">Código o identificación<input className="control" value={personCode} onChange={(event) => { const code = event.target.value; setPersonCode(code); const match = people.find((item) => item.codigo.toLocaleLowerCase() === code.trim().toLocaleLowerCase()); setPerson(match ? String(match.id) : ""); }} placeholder="Ej. UNI001" /></label>
                 <label className="field-label">Persona *<select className="control-select" required value={person} onChange={(event) => { const selected = people.find((item) => String(item.id) === event.target.value); setPerson(event.target.value); setPersonCode(selected?.codigo ?? ""); }}><option value="">Buscar persona...</option>{people.filter((item) => item.activo).map((item) => <option key={item.id} value={item.id}>{item.codigo} · {item.nombres} {item.apellidos}</option>)}</select></label>
+                <label className="field-label">Clase según grupo y año *<select className="control-select" required value={schedule} onChange={(event) => setSchedule(event.target.value)} disabled={!selectedPerson || personSchedules.length === 0}><option value="">{selectedPerson ? "No hay clases para este grupo" : "Selecciona primero un estudiante"}</option>{personSchedules.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></label>
                 <label className="field-label">Hora *<input className="control" type="time" required value={time} onChange={(event) => setTime(event.target.value)} /></label>
                 <label className="field-label">Estado *<span className="state-select-grid">{stateOptions.map((option) => <label className={`state-choice tone-${option.tone}`} key={option.value}><input type="radio" name="attendance-state" value={option.value} checked={status === option.value} onChange={(event) => setStatus(event.target.value)} /><span>{option.label}</span></label>)}</span></label>
               </div>
@@ -200,4 +212,9 @@ function formatDate(value: string) {
   if (!value) return "—";
   const [year, month, day] = value.split("-");
   return year && month && day ? `${day}/${month}/${year}` : value;
+}
+
+function romanSemester(name: string) {
+  const roman = name.match(/^(VIII|VII|VI|IV|III|II|IX|X|V|I)\s+Semestre\b/i)?.[1]?.toUpperCase();
+  return roman ? ({ I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6, VII: 7, VIII: 8, IX: 9, X: 10 } as const)[roman as "I" | "II" | "III" | "IV" | "V" | "VI" | "VII" | "VIII" | "IX" | "X"] : 0;
 }
