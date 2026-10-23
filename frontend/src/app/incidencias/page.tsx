@@ -6,7 +6,7 @@ import AppShell, { Icon } from "@/components/AppShell";
 import { useSGAAccess } from "@/lib/access";
 import { apiFetch } from "@/lib/api";
 
-type Attendance = { id: number; persona_codigo: string; persona_nombre: string; horario_nombre: string; fecha: string; estado_display: string };
+type Attendance = { id: number; persona_codigo: string; persona_nombre: string; horario_nombre: string; fecha: string; estado: string; estado_display: string };
 type Incident = { id: number; asistencia: number; persona_codigo: string; persona_nombre: string; fecha_asistencia: string; horario_nombre: string; tipo: string; tipo_display: string; descripcion: string; estado: string; estado_display: string; tiene_justificacion: boolean };
 type Justification = { id: number; incidencia: number; persona_codigo: string; persona_nombre: string; fecha_asistencia: string; tipo_incidencia: string; descripcion_incidencia: string; motivo: string; estado: string; estado_display: string; observacion_revision: string };
 
@@ -55,6 +55,7 @@ useEffect(() => { void Promise.resolve().then(loadData); }, [loadData]);
   }
 
   const availableIncidents = useMemo(() => incidents.filter((item) => !item.tiene_justificacion), [incidents]);
+  const incidentEligibleAttendance = useMemo(() => attendance.filter((item) => item.estado !== "presente"), [attendance]);
   const pendingIncidents = incidents.filter((item) => item.estado === "pendiente").length;
   const pendingJustifications = justifications.filter((item) => item.estado === "pendiente").length;
   const resolved = incidents.filter((item) => item.estado === "resuelta").length;
@@ -140,8 +141,8 @@ useEffect(() => { void Promise.resolve().then(loadData); }, [loadData]);
       <div className="incidence-grid">
         <section className="panel panel-pad">
           <div className="panel-heading"><div className="panel-title"><span className="panel-title-icon tone-amber"><Icon name="alert" size={17} /></span><div><h2>Registrar incidencia</h2><p>Vincula el evento a un registro de asistencia</p></div></div></div>
-          {!canWrite ? <p className="access-note">Tu rol permite consultar incidencias; el registro está reservado a Administración y Gestión de asistencia.</p> : attendance.length === 0 && !loading ? <div className="empty-state">Primero debe existir un registro de asistencia.</div> : <form className="form-fields" onSubmit={createIncident}>
-            <label className="field-label">Asistencia relacionada *<select className="control-select" required value={attendanceId} onChange={(event) => setAttendanceId(event.target.value)}><option value="">Selecciona una asistencia</option>{attendance.map((item) => <option key={item.id} value={item.id}>{item.fecha} · {item.persona_codigo} · {item.persona_nombre} · {item.estado_display}</option>)}</select></label>
+          {!canWrite ? <p className="access-note">Tu rol permite consultar incidencias; el registro está reservado a Administración y Gestión de asistencia.</p> : incidentEligibleAttendance.length === 0 && !loading ? <div className="empty-state">{attendance.length === 0 ? "Primero debe existir un registro de asistencia." : "No hay asistencias con incidencias para registrar."}</div> : <form className="form-fields" onSubmit={createIncident}>
+            <label className="field-label">Asistencia relacionada *<select className="control-select" required value={attendanceId} onChange={(event) => setAttendanceId(event.target.value)}><option value="">Selecciona una asistencia</option>{incidentEligibleAttendance.map((item) => <option key={item.id} value={item.id}>{item.fecha} · {item.persona_codigo} · {item.persona_nombre} · {item.estado_display}</option>)}</select></label>
             <label className="field-label">Tipo de incidencia *<select className="control-select" value={type} onChange={(event) => setType(event.target.value)}><option value="tardanza">Tardanza</option><option value="ausencia">Ausencia</option><option value="otra">Otra</option></select></label>
             <label className="field-label">Descripción *<textarea className="control-textarea" required maxLength={300} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Describe el evento (máximo 300 caracteres)" /></label>
             <button className="button button-primary" type="submit" disabled={saving || loading}><Icon name="plus" size={16} />Registrar incidencia</button>
