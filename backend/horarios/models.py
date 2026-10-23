@@ -13,7 +13,6 @@ class Horario(models.Model):
 
     nombre = models.CharField(
         max_length=100,
-        unique=True
     )
 
     hora_entrada = models.TimeField()
@@ -43,6 +42,12 @@ class Horario(models.Model):
 
     class Meta:
         ordering = ["nombre"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["nombre", "area"],
+                name="horario_nombre_area_unico",
+            )
+        ]
         verbose_name = "Horario"
         verbose_name_plural = "Horarios"
 

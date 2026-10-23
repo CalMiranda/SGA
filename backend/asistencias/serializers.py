@@ -1,3 +1,5 @@
+import re
+
 from rest_framework import serializers
 
 from .models import RegistroAsistencia
@@ -101,5 +103,27 @@ class RegistroAsistenciaSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     "Ya existe un registro de asistencia para esta persona, horario y fecha."
                 )
+
+        if persona and horario and persona.rol == "estudiante" and horario.tipo == "academico":
+            if persona.area.casefold() != horario.area.casefold():
+                raise serializers.ValidationError({
+                    "horario": "La clase seleccionada no pertenece al grupo del estudiante."
+                })
+
+            group_match = re.match(r"^([1-5])[STM]\d+-SIS-S$", persona.area, re.IGNORECASE)
+            semester_match = re.match(r"^(VIII|VII|VI|IV|III|II|IX|X|V|I)\s+Semestre\b", horario.nombre, re.IGNORECASE)
+            roman_values = {"I": 1, "II": 2, "III": 3, "IV": 4, "V": 5, "VI": 6, "VII": 7, "VIII": 8, "IX": 9, "X": 10}
+
+            if group_match:
+                year = int(group_match.group(1))
+                if not semester_match:
+                    raise serializers.ValidationError({
+                        "horario": "La clase debe indicar un semestre válido para el grupo del estudiante."
+                    })
+                semester = roman_values[semester_match.group(1).upper()]
+                if semester not in {2 * year - 1, 2 * year}:
+                    raise serializers.ValidationError({
+                        "horario": f"El grupo {persona.area} solo puede registrar clases de los semestres {2 * year - 1} y {2 * year}."
+                    })
 
         return data
