@@ -1,6 +1,8 @@
 from django.utils import timezone
 from rest_framework import serializers
 
+from asistencias.models import RegistroAsistencia
+
 from .models import Incidencia, Justificacion
 
 
@@ -74,6 +76,14 @@ class IncidenciaSerializer(serializers.ModelSerializer):
 
     def get_tiene_justificacion(self, obj) -> bool:
         return hasattr(obj, "justificacion")
+
+    def validate_asistencia(self, asistencia):
+        if asistencia.estado == RegistroAsistencia.ESTADO_PRESENTE:
+            raise serializers.ValidationError(
+                "Solo se pueden registrar incidencias para asistencias con tardanza, ausencia o justificación."
+            )
+
+        return asistencia
 
 
 class JustificacionSerializer(serializers.ModelSerializer):
