@@ -66,11 +66,12 @@ pendiente.
 
 ## Despliegue y responsabilidad ambiental
 
-La configuración de Docker prepara un despliegue con Next.js, Django, PostgreSQL
-y Caddy como proxy HTTPS. La publicación pública depende de un servidor, dominio,
-DNS y secretos de producción que el equipo debe configurar. No hay una URL pública
-ni mediciones de consumo disponibles para afirmar que el sistema ya está en
-producción o que haya producido ahorros cuantificados.
+La configuración de Docker Compose conserva un entorno local con Next.js,
+Django, PostgreSQL y Caddy. La publicación académica está activa en Render
+(https://sga-cal-miranda-web.onrender.com/login) con dos servicios Docker
+gratuitos y PostgreSQL administrado en Neon. Render proporciona HTTPS. No hay
+mediciones de consumo ni resultados de un piloto institucional para afirmar
+ahorros cuantificados.
 
 La solución digital puede reducir la dependencia de listas impresas y
 transcripciones. En el hosting se debe priorizar un servicio compartido y
