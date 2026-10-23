@@ -8,6 +8,7 @@ variables.
 from datetime import timedelta
 from pathlib import Path
 import os
+from urllib.parse import parse_qs, unquote, urlsplit
 
 from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
@@ -91,8 +92,29 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-DATABASES = {
-    "default": {
+database_url = os.getenv("DATABASE_URL")
+if database_url:
+    parsed_database_url = urlsplit(database_url)
+    if parsed_database_url.scheme not in {"postgres", "postgresql"}:
+        raise ImproperlyConfigured("DATABASE_URL must use PostgreSQL.")
+    if not parsed_database_url.hostname or not parsed_database_url.path.strip("/"):
+        raise ImproperlyConfigured("DATABASE_URL is incomplete.")
+    database_query = parse_qs(parsed_database_url.query)
+    database_config = {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": unquote(parsed_database_url.path.lstrip("/")),
+        "USER": unquote(parsed_database_url.username or ""),
+        "PASSWORD": unquote(parsed_database_url.password or ""),
+        "HOST": parsed_database_url.hostname,
+        "PORT": parsed_database_url.port or 5432,
+        "CONN_MAX_AGE": int(os.getenv("DB_CONN_MAX_AGE", "0")),
+        "CONN_HEALTH_CHECKS": True,
+        "OPTIONS": {
+            "sslmode": os.getenv("DB_SSLMODE", database_query.get("sslmode", ["require"])[0]),
+        },
+    }
+else:
+    database_config = {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": os.getenv("DB_NAME", "sga"),
         "USER": os.getenv("DB_USER", "sga_user"),
@@ -100,11 +122,10 @@ DATABASES = {
         "HOST": os.getenv("DB_HOST", "127.0.0.1"),
         "PORT": os.getenv("DB_PORT", "5432"),
         "CONN_MAX_AGE": int(os.getenv("DB_CONN_MAX_AGE", "60")),
-        "OPTIONS": {
-            "sslmode": os.getenv("DB_SSLMODE", "prefer"),
-        },
+        "OPTIONS": {"sslmode": os.getenv("DB_SSLMODE", "prefer")},
     }
-}
+
+DATABASES = {"default": database_config}
 
 AUTH_PASSWORD_VALIDATORS = [
     {
