@@ -203,6 +203,12 @@ a { color: inherit; }
 .date-range-controls { display: flex; align-items: center; gap: 7px; }
 .date-range-controls .control { min-width: 0; }
 .report-metrics { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 11px; margin-bottom: 13px; }
+.report-print-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding: 14px 18px; margin-bottom: 13px; border: 1px solid #e3eaf3; border-left: 4px solid #174d93; border-radius: 10px; background: linear-gradient(110deg,#fff,#f6f9fd); color: #6c7e96; font-size: 10px; }
+.report-print-heading > div { display: grid; gap: 4px; }
+.report-print-heading strong { color: #183659; font-size: 13px; }
+.report-print-meta { text-align: right; }
+.report-print-meta > span { color: #174d93; font-size: 9px; font-weight: 800; letter-spacing: .08em; }
+.report-print-meta small { font-size: 9px; }
 .report-types-panel { min-width: 0; padding: 12px; }
 .report-types-heading { display: flex; align-items: center; gap: 7px; margin-bottom: 9px; color: #1a3151; font-size: 12px; }
 .report-type-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 7px; }
@@ -213,8 +219,8 @@ a { color: inherit; }
 .report-type-card.selected { border-color: currentColor; box-shadow: inset 0 0 0 1px currentColor; }
 .report-charts { display: grid; grid-template-columns: 1fr 1.2fr minmax(210px,.8fr); gap: 12px; margin-bottom: 13px; }
 .report-chart { min-height: 260px; padding: 17px; }
-.vertical-bars { min-height: 178px; display: flex; align-items: end; justify-content: space-around; gap: 8px; padding: 13px 4px 0; border-bottom: 1px solid #e8edf4; }
-.vertical-bar-item { height: 100%; flex: 1; display: grid; grid-template-rows: auto 1fr auto; justify-items: center; gap: 5px; color: #7588a0; font-size: 9px; }
+.vertical-bars { height: 190px; min-height: 190px; display: flex; align-items: end; justify-content: space-around; gap: 8px; padding: 13px 4px 0; border-bottom: 1px solid #e8edf4; }
+.vertical-bar-item { height: 100%; min-width: 0; flex: 1; display: grid; grid-template-rows: auto minmax(0,1fr) auto; justify-items: center; gap: 5px; color: #7588a0; font-size: 9px; }
 .vertical-bar-value { color: #4c617e; font-size: 9px; font-weight: 700; }
 .vertical-bar-track { width: 65%; height: 100%; display: flex; align-items: end; border-radius: 6px 6px 0 0; background: #f0f4f9; }
 .vertical-bar-fill { width: 100%; min-height: 3px; border-radius: 6px 6px 0 0; background: linear-gradient(180deg,#347fe8,#174d93); }
@@ -478,10 +484,22 @@ a { color: inherit; }
   .login-heading h1 { font-size: 28px; }
 }
 @media print {
-  body, .app-shell, .app-main { background: #fff !important; }
-  .sidebar, .topbar, .page-heading-actions, .no-print, .button { display: none !important; }
+  @page { size: A4 landscape; margin: 12mm; }
+  body, .app-shell, .app-main, .content-area { background: #fff !important; color: #24364d !important; }
+  body { font-size: 10pt; }
+  .sidebar, .topbar, .page-heading-actions, .no-print, .button, .alert { display: none !important; }
   .app-shell { display: block; }
-  .content-area { width: 100%; padding: 0; }
-  .panel { box-shadow: none; break-inside: avoid; }
+  .content-area { width: 100%; max-width: none; padding: 0; }
+  .report-print-heading { display: flex !important; padding: 0 0 8mm; margin-bottom: 5mm; border: 0; border-bottom: 2px solid #174d93; border-radius: 0; background: #fff !important; }
+  .report-metrics { grid-template-columns: repeat(4,minmax(0,1fr)); gap: 4mm; }
+  .report-charts { grid-template-columns: 1fr 1.15fr .9fr; gap: 4mm; }
+  .panel { box-shadow: none !important; border: 1px solid #d8e0ea; break-inside: avoid; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .report-chart { min-height: 0; padding: 4mm; }
+  .vertical-bars { height: 48mm; min-height: 48mm; }
+  .monthly-chart { height: 48mm; }
+  .donut-chart { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .report-results { margin-top: 4mm; }
+  .data-table { width: 100%; }
   .data-table th { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .report-type-card { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
 }
