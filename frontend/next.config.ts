@@ -12,10 +12,13 @@ const nextConfig: NextConfig = {
   async rewrites() {
     if (!internalApiOrigin) return [];
 
-    return ["api", "admin", "static"].map((route) => ({
+    return ["api", "admin"].map((route) => ({
       source: `/${route}/:path*`,
-      destination: `${internalApiOrigin}/${route}/:path*`,
-    }));
+      destination: `${internalApiOrigin}/${route}/:path*/`,
+    })).concat({
+      source: "/static/:path*",
+      destination: `${internalApiOrigin}/static/:path*`,
+    });
   },
   async headers() {
     const scriptPolicy = process.env.NODE_ENV === "development"
