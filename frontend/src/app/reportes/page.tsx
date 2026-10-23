@@ -75,6 +75,8 @@ useEffect(() => { void Promise.resolve().then(loadRecords); }, [loadRecords]);
     return aggregateByArea(baseFiltered);
   }, [baseFiltered]);
   const resultByArea = useMemo(() => aggregateByArea(filtered), [filtered]);
+  const chartByArea = useMemo(() => [...byArea].sort((a, b) => b[1].total - a[1].total).slice(0, 8), [byArea]);
+  const reportTypeLabel = reportType === "todos" ? "Asistencia general" : statusList.find((item) => item.key === reportType)?.label ?? "Asistencia general";
 
   const lastMonths = useMemo(() => {
     const anchor = new Date(`${applied.to || today}T12:00:00`);
@@ -124,6 +126,10 @@ useEffect(() => { void Promise.resolve().then(loadRecords); }, [loadRecords]);
       </form>
 
       {loading ? <section className="panel loading-state">Preparando el reporte...</section> : <>
+        <section className="report-print-heading" aria-label="Datos del reporte">
+          <div><span>UNIVERSIDAD NACIONAL DE INGENIERÍA</span><strong>Sistema de Gestión de Asistencia</strong></div>
+          <div className="report-print-meta"><span>REPORTE DE {reportTypeLabel.toLocaleUpperCase("es-NI")}</span><strong>Período: {formatReportDate(applied.from)} — {formatReportDate(applied.to)}</strong><small>Generado: {new Intl.DateTimeFormat("es-NI", { dateStyle: "long" }).format(new Date())}</small></div>
+        </section>
         <div className="report-metrics">
           <Metric icon="people" tone="green" label="Asistencia promedio" value={`${presentRate}%`} detail={`${counts.presente} de ${total} registros`} />
           <Metric icon="clock" tone="amber" label="Tardanza promedio" value={`${latenessRate}%`} detail={`${counts.tardanza} de ${total} registros`} />
@@ -141,8 +147,8 @@ useEffect(() => { void Promise.resolve().then(loadRecords); }, [loadRecords]);
 
         <div className="report-charts">
           <section className="panel report-chart">
-            <div className="panel-heading"><div className="panel-title"><span className="panel-title-icon"><Icon name="chart" size={17} /></span><div><h2>Asistencia por grupo</h2><p>Porcentaje de asistencia del período</p></div></div><span className="count-chip">Porcentaje</span></div>
-            {byArea.length === 0 ? <div className="empty-state">No hay datos para mostrar.</div> : <div className="vertical-bars" aria-label="Porcentaje de asistencia por grupo o área">{byArea.slice(0, 8).map(([name, values]) => { const rate = values.total ? Math.round((values.presente / values.total) * 100) : 0; return <div className="vertical-bar-item" key={name} title={`${name}: ${rate}% de asistencia`}><span className="vertical-bar-value">{rate}%</span><div className="vertical-bar-track"><div className="vertical-bar-fill" style={{ height: `${rate}%` }} /></div><span>{shortLabel(name)}</span></div>; })}</div>}
+            <div className="panel-heading"><div className="panel-title"><span className="panel-title-icon"><Icon name="chart" size={17} /></span><div><h2>Asistencia por grupo</h2><p>Porcentaje en los 8 grupos con más registros</p></div></div><span className="count-chip">Porcentaje</span></div>
+            {chartByArea.length === 0 ? <div className="empty-state">No hay datos para mostrar en este período.</div> : <div className="vertical-bars" role="img" aria-label={`Porcentaje de asistencia por grupo: ${chartByArea.map(([name, values]) => `${name}, ${values.total ? Math.round((values.presente / values.total) * 100) : 0} por ciento`).join("; ")}`}>{chartByArea.map(([name, values]) => { const rate = values.total ? Math.round((values.presente / values.total) * 100) : 0; return <div className="vertical-bar-item" key={name} title={`${name}: ${rate}% de asistencia`}><span className="vertical-bar-value">{rate}%</span><div className="vertical-bar-track"><div className="vertical-bar-fill" style={{ height: `${rate}%` }} /></div><span>{shortLabel(name)}</span></div>; })}</div>}
           </section>
 
           <section className="panel report-chart">
@@ -191,6 +197,11 @@ function donutStyle(counts: Record<string, number>, total: number) {
 }
 
 function shortLabel(value: string) { return value.length > 14 ? `${value.slice(0, 12)}…` : value; }
+
+function formatReportDate(value: string) {
+  if (!value) return "—";
+  return new Intl.DateTimeFormat("es-NI", { day: "2-digit", month: "long", year: "numeric" }).format(new Date(`${value}T12:00:00`));
+}
 
 function roleKey(value: string) {
   return value.toLocaleLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
